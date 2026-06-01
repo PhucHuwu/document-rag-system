@@ -1,6 +1,6 @@
-# Tina Chatbot
+# document-rag-system
 
-Tina Chatbot is a multi-tenant RAG chatbot platform for enterprise knowledge assistants.
+document-rag-system is a multi-tenant RAG chatbot platform for enterprise knowledge assistants.
 
 The architecture follows a client-server model:
 
