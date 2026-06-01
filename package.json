@@ -1,0 +1,21 @@
+{
+  "name": "tina-chatbot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant RAG chatbot platform with NestJS Core Backend, Python AI Backend, Next.js Web, MinIO and Qdrant.",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @tina/web dev",
+    "dev:api": "pnpm --filter @tina/api dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "infra:up": "docker compose up -d postgres redis minio qdrant",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}
