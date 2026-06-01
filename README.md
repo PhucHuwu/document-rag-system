@@ -113,10 +113,10 @@ Embedding can be self-hosted or provider-backed. The default placeholder model i
 After running `prisma:seed`, use these accounts:
 
 ```text
-owner@tina.local / Password123!
-hr@tina.local / Password123!
-it@tina.local / Password123!
-super@tina.local / Password123!
+owner@tina.local / 123456
+hr@tina.local / 123456
+it@tina.local / 123456
+super@tina.local / 123456
 ```
 
 Login:
@@ -124,7 +124,7 @@ Login:
 ```bash
 curl -X POST http://localhost:3001/auth/login \
   -H "content-type: application/json" \
-  -d '{"email":"hr@tina.local","password":"Password123!"}'
+  -d '{"email":"hr@tina.local","password":"123456"}'
 ```
 
 Chat with a bearer token:

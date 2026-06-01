@@ -24,7 +24,7 @@ pnpm --filter @tina/api prisma:seed
 Demo login:
 
 ```text
-hr@tina.local / Password123!
+hr@tina.local / 123456
 ```
 
 Core rule:

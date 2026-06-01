@@ -42,14 +42,14 @@ async function main() {
   const superAdmin = await upsertUser({
     email: "super@tina.local",
     name: "Super Admin",
-    password: "Password123!",
+    password: "123456",
     role: "super_admin"
   });
 
   const owner = await upsertUser({
     email: "owner@tina.local",
     name: "Workspace Owner",
-    password: "Password123!",
+    password: "123456",
     role: "workspace_owner",
     workspaceId: workspace.id
   });
@@ -57,7 +57,7 @@ async function main() {
   const hrUser = await upsertUser({
     email: "hr@tina.local",
     name: "HR Employee",
-    password: "Password123!",
+    password: "123456",
     role: "employee",
     workspaceId: workspace.id
   });
@@ -65,7 +65,7 @@ async function main() {
   const itUser = await upsertUser({
     email: "it@tina.local",
     name: "IT Employee",
-    password: "Password123!",
+    password: "123456",
     role: "employee",
     workspaceId: workspace.id
   });
