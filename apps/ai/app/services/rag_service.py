@@ -17,6 +17,9 @@ class RagService:
             "retrieval_trace_id": f"trace_{uuid4().hex}",
             "debug": {
                 "collection": settings.qdrant_collection,
+                "llm_provider": "openrouter",
+                "llm_model": settings.llm_model,
+                "embedding_model": settings.embedding_model,
                 "qdrant_filter": qdrant_filter,
                 "top_k": request.top_k,
                 "rerank_top_n": request.rerank_top_n,

@@ -531,8 +531,9 @@ Trace nên lưu:
   "retrieved_chunk_ids": ["chunk_1", "chunk_2"],
   "reranked_chunk_ids": ["chunk_2", "chunk_1"],
   "final_context_chunk_ids": ["chunk_2"],
-  "llm_model": "gpt-4.1-mini",
-  "embedding_model": "text-embedding-3-small",
+  "llm_provider": "openrouter",
+  "llm_model": "openai/gpt-4.1-mini",
+  "embedding_model": "BAAI/bge-m3",
   "latency_ms": 1840,
   "created_at": "2026-06-01T00:00:00Z"
 }
@@ -595,7 +596,8 @@ Trace logging: bắt buộc
 
 Embedding model có thể chọn theo định hướng triển khai:
 
-- Cloud-first: OpenAI hoặc Azure OpenAI embedding.
+- LLM provider mặc định: OpenRouter với API tương thích chuẩn OpenAI.
+- Cloud-first embedding: provider embedding tương thích chuẩn OpenAI nếu chọn dịch vụ managed.
 - Self-host: BAAI/bge-m3 hoặc multilingual-e5-large.
 
 Reranker có thể chọn:

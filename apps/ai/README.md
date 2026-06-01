@@ -12,7 +12,7 @@ Responsibilities:
 - Reranking.
 - Context assembly.
 - Guarded prompt assembly.
-- LLM calls.
+- LLM calls through OpenRouter.
 
 Security rule:
 
@@ -25,3 +25,12 @@ Runtime modes:
 
 - API mode: `uvicorn app.main:app --reload --port 8000`
 - Worker mode: `python -m app.worker`
+
+AI provider:
+
+```text
+Provider: OpenRouter
+Base URL: https://openrouter.ai/api/v1
+API key env: OPENROUTER_API_KEY
+Default LLM model: openai/gpt-4.1-mini
+```

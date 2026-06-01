@@ -296,7 +296,7 @@ Luồng ingest tài liệu cơ bản:
 
 ### 10.4. AI Và RAG
 
-- OpenAI, Azure OpenAI hoặc model provider tương thích chuẩn OpenAI API.
+- OpenRouter làm AI provider chính cho LLM, thông qua API tương thích chuẩn OpenAI.
 - Embedding model hỗ trợ tiếng Việt và tiếng Anh.
 - Reranker model để cải thiện chất lượng retrieval.
 - Docling dùng để xử lý tài liệu phi cấu trúc như PDF, DOCX, PPTX, HTML hoặc tài liệu scan thành dạng có cấu trúc phục vụ chunking và indexing.

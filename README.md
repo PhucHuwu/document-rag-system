@@ -86,6 +86,20 @@ If `effective_scope` is empty, Core Backend or AI Backend must deny the query.
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
 
+## AI Provider
+
+The default LLM provider is OpenRouter.
+
+Set the following value in `.env` before enabling real LLM calls:
+
+```text
+OPENROUTER_API_KEY=your-openrouter-key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL=openai/gpt-4.1-mini
+```
+
+Embedding can be self-hosted or provider-backed. The default placeholder model is `BAAI/bge-m3`.
+
 ## Documentation
 
 - `docs/project.md`: product and architecture overview.
