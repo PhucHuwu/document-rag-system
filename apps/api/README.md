@@ -13,6 +13,20 @@ Responsibilities:
 - Retrieval scope calculation before calling AI Backend.
 - Audit log and retrieval trace persistence.
 
+Dev database setup:
+
+```bash
+pnpm --filter @tina/api prisma:generate
+pnpm --filter @tina/api prisma:migrate --name init
+pnpm --filter @tina/api prisma:seed
+```
+
+Demo login:
+
+```text
+hr@tina.local / Password123!
+```
+
 Core rule:
 
 ```text

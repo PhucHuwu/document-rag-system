@@ -31,13 +31,21 @@ pnpm infra:up
 pnpm install
 ```
 
-4. Run services:
+4. Prepare Core Backend database:
+
+```bash
+pnpm --filter @tina/api prisma:generate
+pnpm --filter @tina/api prisma:migrate --name init
+pnpm --filter @tina/api prisma:seed
+```
+
+5. Run services:
 
 ```bash
 pnpm dev
 ```
 
-5. Run Python AI Backend separately:
+6. Run Python AI Backend separately:
 
 ```bash
 cd apps/ai
@@ -99,6 +107,34 @@ LLM_MODEL=openai/gpt-4.1-mini
 ```
 
 Embedding can be self-hosted or provider-backed. The default placeholder model is `BAAI/bge-m3`.
+
+## Demo Accounts
+
+After running `prisma:seed`, use these accounts:
+
+```text
+owner@tina.local / Password123!
+hr@tina.local / Password123!
+it@tina.local / Password123!
+super@tina.local / Password123!
+```
+
+Login:
+
+```bash
+curl -X POST http://localhost:3001/auth/login \
+  -H "content-type: application/json" \
+  -d '{"email":"hr@tina.local","password":"Password123!"}'
+```
+
+Chat with a bearer token:
+
+```bash
+curl -X POST http://localhost:3001/chat/messages \
+  -H "content-type: application/json" \
+  -H "authorization: Bearer <accessToken>" \
+  -d '{"assistantId":"asst_hr","question":"Chính sách nghỉ phép thế nào?"}'
+```
 
 ## Documentation
 
