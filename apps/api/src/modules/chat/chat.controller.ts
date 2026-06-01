@@ -4,6 +4,8 @@ import { ChatService } from "./chat.service";
 type ChatRequest = {
   question: string;
   assistantId?: string;
+  userId?: string;
+  sessionId?: string;
 };
 
 @Controller("chat")
