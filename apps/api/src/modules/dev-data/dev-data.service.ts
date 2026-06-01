@@ -1,121 +1,51 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import type { Assistant, ChatSession, Folder, FolderAccessControl, User, Workspace } from "./dev-data.types";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Assistant, User } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class DevDataService {
-  private readonly workspaces: Workspace[] = [
-    { id: "ws_demo", name: "Tina Demo Company", status: "active" }
-  ];
-
-  private readonly users: User[] = [
-    {
-      id: "user_owner",
-      workspaceId: "ws_demo",
-      email: "owner@tina.local",
-      name: "Workspace Owner",
-      role: "workspace_owner"
-    },
-    {
-      id: "user_hr",
-      workspaceId: "ws_demo",
-      email: "hr@tina.local",
-      name: "HR Employee",
-      role: "employee"
-    },
-    {
-      id: "user_it",
-      workspaceId: "ws_demo",
-      email: "it@tina.local",
-      name: "IT Employee",
-      role: "employee"
-    }
-  ];
-
-  private readonly folders: Folder[] = [
-    { id: "folder_root", workspaceId: "ws_demo", parentId: null, name: "Tri thức công ty" },
-    { id: "folder_hr", workspaceId: "ws_demo", parentId: "folder_root", name: "HR" },
-    { id: "folder_hr_policy", workspaceId: "ws_demo", parentId: "folder_hr", name: "Chính sách nhân sự" },
-    { id: "folder_recruitment", workspaceId: "ws_demo", parentId: "folder_hr", name: "Tuyển dụng" },
-    { id: "folder_it", workspaceId: "ws_demo", parentId: "folder_root", name: "IT" },
-    { id: "folder_it_ops", workspaceId: "ws_demo", parentId: "folder_it", name: "Quy trình vận hành" }
-  ];
-
-  private readonly folderAccessControls: FolderAccessControl[] = [
-    { workspaceId: "ws_demo", userId: "user_owner", folderId: "folder_root", accessType: "read" },
-    { workspaceId: "ws_demo", userId: "user_hr", folderId: "folder_hr", accessType: "read" },
-    { workspaceId: "ws_demo", userId: "user_it", folderId: "folder_it", accessType: "read" }
-  ];
-
-  private readonly assistants: Assistant[] = [
-    {
-      id: "asst_company",
-      workspaceId: "ws_demo",
-      name: "Trợ lý Công ty",
-      status: "active",
-      allowedFolderIds: ["folder_root"],
-      assignedUserIds: ["user_owner"],
-      topK: 40,
-      rerankTopN: 8
-    },
-    {
-      id: "asst_hr",
-      workspaceId: "ws_demo",
-      name: "Trợ lý HR",
-      status: "active",
-      allowedFolderIds: ["folder_hr"],
-      assignedUserIds: ["user_owner", "user_hr"],
-      topK: 40,
-      rerankTopN: 8
-    },
-    {
-      id: "asst_it",
-      workspaceId: "ws_demo",
-      name: "Trợ lý IT",
-      status: "active",
-      allowedFolderIds: ["folder_it"],
-      assignedUserIds: ["user_owner", "user_it"],
-      topK: 40,
-      rerankTopN: 8
-    }
-  ];
-
-  private readonly sessions: ChatSession[] = [];
+  constructor(private readonly prisma: PrismaService) {}
 
   listWorkspaces() {
-    return this.workspaces;
+    return this.prisma.workspace.findMany({ orderBy: { createdAt: "asc" } });
   }
 
-  listUsers(workspaceId = "ws_demo") {
-    return this.users.filter((user) => user.workspaceId === workspaceId);
+  listUsers(workspaceId?: string) {
+    return this.prisma.user.findMany({
+      where: workspaceId ? { workspaceId } : undefined,
+      select: { id: true, workspaceId: true, email: true, name: true, role: true, status: true, createdAt: true },
+      orderBy: { createdAt: "asc" }
+    });
   }
 
-  listFolders(workspaceId = "ws_demo") {
-    return this.folders.filter((folder) => folder.workspaceId === workspaceId);
+  listFolders(workspaceId?: string) {
+    return this.prisma.folder.findMany({
+      where: workspaceId ? { workspaceId } : undefined,
+      orderBy: { createdAt: "asc" }
+    });
   }
 
-  listAssistants(workspaceId = "ws_demo") {
-    return this.assistants.filter((assistant) => assistant.workspaceId === workspaceId);
+  listAssistants(workspaceId?: string) {
+    return this.prisma.assistant.findMany({
+      where: workspaceId ? { workspaceId } : undefined,
+      include: { knowledgeSources: true, assignments: true },
+      orderBy: { createdAt: "asc" }
+    });
   }
 
-  getWorkspace(workspaceId: string) {
-    const workspace = this.workspaces.find((item) => item.id === workspaceId);
-    if (!workspace) throw new NotFoundException("Workspace not found");
-    return workspace;
-  }
-
-  getUser(userId: string) {
-    const user = this.users.find((item) => item.id === userId);
+  async getUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");
     return user;
   }
 
-  getAssistant(assistantId: string) {
-    const assistant = this.assistants.find((item) => item.id === assistantId);
+  async getAssistant(assistantId: string) {
+    const assistant = await this.prisma.assistant.findUnique({ where: { id: assistantId } });
     if (!assistant) throw new NotFoundException("Assistant not found");
     return assistant;
   }
 
-  getFolderDescendantIds(workspaceId: string, rootFolderIds: string[]) {
+  async getFolderDescendantIds(workspaceId: string, rootFolderIds: string[]) {
     const result = new Set<string>();
     const queue = [...rootFolderIds];
 
@@ -123,84 +53,70 @@ export class DevDataService {
       const currentId = queue.shift();
       if (!currentId || result.has(currentId)) continue;
 
-      const folder = this.folders.find((item) => item.workspaceId === workspaceId && item.id === currentId);
+      const folder = await this.prisma.folder.findFirst({ where: { id: currentId, workspaceId } });
       if (!folder) continue;
 
       result.add(folder.id);
-      const children = this.folders.filter((item) => item.workspaceId === workspaceId && item.parentId === folder.id);
+
+      const children = await this.prisma.folder.findMany({
+        where: { workspaceId, parentId: folder.id },
+        select: { id: true }
+      });
       queue.push(...children.map((child) => child.id));
     }
 
     return [...result];
   }
 
-  getUserFolderScope(userId: string) {
-    const user = this.getUser(userId);
-    const directFolderIds = this.folderAccessControls
-      .filter((item) => item.workspaceId === user.workspaceId && item.userId === user.id)
-      .map((item) => item.folderId);
+  async getUserFolderScope(userId: string) {
+    const user = await this.getUser(userId);
+    if (!user.workspaceId) return [];
 
-    return this.getFolderDescendantIds(user.workspaceId, directFolderIds);
+    const directAccess = await this.prisma.folderAccessControl.findMany({
+      where: { workspaceId: user.workspaceId, userId: user.id, accessType: "read" },
+      select: { folderId: true }
+    });
+
+    return this.getFolderDescendantIds(
+      user.workspaceId,
+      directAccess.map((item) => item.folderId)
+    );
   }
 
-  getAssistantFolderScope(assistantId: string) {
-    const assistant = this.getAssistant(assistantId);
-    return this.getFolderDescendantIds(assistant.workspaceId, assistant.allowedFolderIds);
+  async getAssistantFolderScope(assistantId: string) {
+    const assistant = await this.getAssistant(assistantId);
+    const knowledgeSources = await this.prisma.assistantKnowledgeSource.findMany({
+      where: { workspaceId: assistant.workspaceId, assistantId: assistant.id },
+      select: { folderId: true }
+    });
+
+    return this.getFolderDescendantIds(
+      assistant.workspaceId,
+      knowledgeSources.map((item) => item.folderId)
+    );
   }
 
-  getEffectiveFolderScope(userId: string, assistantId: string) {
-    const user = this.getUser(userId);
-    const assistant = this.getAssistant(assistantId);
-    const workspace = this.getWorkspace(user.workspaceId);
+  async getEffectiveFolderScope(userId: string, assistantId: string) {
+    const user = await this.getUser(userId);
+    const assistant = await this.getAssistant(assistantId);
 
-    if (workspace.status !== "active" || assistant.status !== "active") return [];
+    if (!user.workspaceId || user.status !== "active" || assistant.status !== "active") return [];
     if (assistant.workspaceId !== user.workspaceId) return [];
-    if (!assistant.assignedUserIds.includes(user.id)) return [];
 
-    const userScope = new Set(this.getUserFolderScope(user.id));
-    const assistantScope = this.getAssistantFolderScope(assistant.id);
+    const assignment = await this.prisma.assistantAssignment.findUnique({
+      where: { assistantId_userId: { assistantId: assistant.id, userId: user.id } }
+    });
+    if (!assignment) return [];
+
+    const userScope = new Set(await this.getUserFolderScope(user.id));
+    const assistantScope = await this.getAssistantFolderScope(assistant.id);
 
     return assistantScope.filter((folderId) => userScope.has(folderId));
   }
 
-  createSession(userId: string, assistantId: string) {
-    const user = this.getUser(userId);
-    const assistant = this.getAssistant(assistantId);
-    const session: ChatSession = {
-      id: `session_${crypto.randomUUID()}`,
-      workspaceId: user.workspaceId,
-      userId: user.id,
-      assistantId: assistant.id,
-      createdAt: new Date().toISOString(),
-      messages: []
-    };
-
-    this.sessions.push(session);
-    return session;
-  }
-
-  getOrCreateSession(userId: string, assistantId: string, sessionId?: string) {
-    if (sessionId) {
-      const existing = this.sessions.find((session) => session.id === sessionId);
-      if (existing) return existing;
+  assertSameWorkspace(user: User, assistant: Assistant) {
+    if (!user.workspaceId || user.workspaceId !== assistant.workspaceId) {
+      throw new ForbiddenException("Assistant does not belong to user workspace");
     }
-
-    return this.createSession(userId, assistantId);
-  }
-
-  addMessage(sessionId: string, role: "user" | "assistant", content: string) {
-    const session = this.sessions.find((item) => item.id === sessionId);
-    if (!session) throw new NotFoundException("Session not found");
-
-    const message = {
-      id: `msg_${crypto.randomUUID()}`,
-      sessionId,
-      role,
-      content,
-      createdAt: new Date().toISOString()
-    };
-
-    session.messages.push(message);
-    return message;
   }
 }

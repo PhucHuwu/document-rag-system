@@ -26,13 +26,17 @@ export class DevDataController {
   }
 
   @Get("scope")
-  getScope(@Query("userId") userId = "user_hr", @Query("assistantId") assistantId = "asst_hr") {
+  async getScope(@Query("userId") userId: string, @Query("assistantId") assistantId = "asst_hr") {
+    const resolvedUserId = userId ?? (await this.devData.listUsers()).find((user) => user.email === "hr@tina.local")?.id;
+
+    if (!resolvedUserId) return { error: "No demo user found. Run prisma seed first." };
+
     return {
-      userId,
+      userId: resolvedUserId,
       assistantId,
-      userFolderScope: this.devData.getUserFolderScope(userId),
-      assistantFolderScope: this.devData.getAssistantFolderScope(assistantId),
-      effectiveFolderScope: this.devData.getEffectiveFolderScope(userId, assistantId)
+      userFolderScope: await this.devData.getUserFolderScope(resolvedUserId),
+      assistantFolderScope: await this.devData.getAssistantFolderScope(assistantId),
+      effectiveFolderScope: await this.devData.getEffectiveFolderScope(resolvedUserId, assistantId)
     };
   }
 }

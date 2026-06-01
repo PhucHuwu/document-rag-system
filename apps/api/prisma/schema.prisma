@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceStatus {
+  active
+  inactive
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+enum RoleCode {
+  super_admin
+  system_admin
+  workspace_owner
+  employee
+}
+
+enum AssistantStatus {
+  active
+  inactive
+}
+
+enum AccessType {
+  read
+}
+
+enum ChatMessageRole {
+  user
+  assistant
+  system
+}
+
+enum IngestionStatus {
+  pending
+  processing
+  docling_parsed
+  normalized
+  chunked
+  embedded
+  indexed
+  completed
+  failed
+  cancelled
+}
+
+model Workspace {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  status      WorkspaceStatus @default(active)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  users       User[]
+  folders     Folder[]
+  documents   Document[]
+  assistants  Assistant[]
+  chatSessions ChatSession[]
+  auditLogs   AuditLog[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  workspaceId  String?
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         RoleCode
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id])
+  folderAccessControls FolderAccessControl[]
+  assistantAssignments AssistantAssignment[]
+  chatSessions ChatSession[]
+  chatMessages ChatMessage[]
+  auditLogs    AuditLog[]
+
+  @@index([workspaceId])
+}
+
+model Folder {
+  id          String   @id @default(cuid())
+  workspaceId String
+  parentId    String?
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent      Folder?   @relation("FolderTree", fields: [parentId], references: [id])
+  children    Folder[]  @relation("FolderTree")
+  documents   Document[]
+  folderAccessControls FolderAccessControl[]
+  assistantKnowledgeSources AssistantKnowledgeSource[]
+
+  @@index([workspaceId])
+  @@index([parentId])
+}
+
+model FolderAccessControl {
+  id          String     @id @default(cuid())
+  workspaceId String
+  userId      String
+  folderId    String
+  accessType  AccessType @default(read)
+  createdAt   DateTime   @default(now())
+
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder      Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, folderId, accessType])
+  @@index([workspaceId])
+}
+
+model Document {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  folderId        String
+  title           String
+  fileName        String
+  fileType        String
+  storageKey      String
+  checksum        String?
+  version         Int             @default(1)
+  ingestionStatus IngestionStatus @default(pending)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  folder          Folder    @relation(fields: [folderId], references: [id])
+  chunks          DocumentChunk[]
+
+  @@index([workspaceId])
+  @@index([folderId])
+}
+
+model DocumentChunk {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  folderId        String
+  documentId      String
+  documentVersion Int
+  content         String
+  qdrantPointId   String?  @unique
+  pageStart       Int?
+  pageEnd         Int?
+  sectionTitle    String?
+  headingPath     Json?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([folderId])
+  @@index([documentId])
+}
+
+model Assistant {
+  id          String          @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  status      AssistantStatus @default(active)
+  topK        Int             @default(40)
+  rerankTopN  Int             @default(8)
+  temperature Float           @default(0.2)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledgeSources AssistantKnowledgeSource[]
+  assignments AssistantAssignment[]
+  chatSessions ChatSession[]
+
+  @@index([workspaceId])
+}
+
+model AssistantKnowledgeSource {
+  id          String   @id @default(cuid())
+  workspaceId String
+  assistantId String
+  folderId    String
+  createdAt   DateTime @default(now())
+
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  folder      Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([assistantId, folderId])
+  @@index([workspaceId])
+}
+
+model AssistantAssignment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  assistantId String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([assistantId, userId])
+  @@index([workspaceId])
+}
+
+model ChatSession {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  assistantId String
+  title       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assistant   Assistant @relation(fields: [assistantId], references: [id])
+  messages    ChatMessage[]
+  retrievalTraces RetrievalTrace[]
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([assistantId])
+}
+
+model ChatMessage {
+  id          String          @id @default(cuid())
+  workspaceId String
+  sessionId   String
+  userId      String?
+  role        ChatMessageRole
+  content     String
+  sources     Json?
+  createdAt   DateTime        @default(now())
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
+  @@index([sessionId])
+}
+
+model RetrievalTrace {
+  id          String   @id @default(cuid())
+  workspaceId String
+  sessionId   String
+  userId      String
+  assistantId String
+  question    String
+  userFolderScope Json
+  assistantFolderScope Json
+  effectiveFolderScope Json
+  qdrantFilter Json?
+  retrievedChunkIds Json?
+  llmProvider String
+  llmModel    String
+  latencyMs   Int?
+  createdAt   DateTime @default(now())
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([sessionId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  actor       User?      @relation(fields: [actorUserId], references: [id])
+
+  @@index([workspaceId])
+  @@index([actorUserId])
+}
