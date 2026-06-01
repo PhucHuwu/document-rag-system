@@ -136,6 +136,16 @@ curl -X POST http://localhost:3001/chat/messages \
   -d '{"assistantId":"asst_hr","question":"Chính sách nghỉ phép thế nào?"}'
 ```
 
+Upload a document:
+
+```bash
+curl -X POST http://localhost:3001/documents/upload \
+  -H "authorization: Bearer <accessToken>" \
+  -F "folderId=folder_hr_policy" \
+  -F "title=Demo policy" \
+  -F "file=@/path/to/document.pdf"
+```
+
 ## Documentation
 
 - `docs/project.md`: product and architecture overview.

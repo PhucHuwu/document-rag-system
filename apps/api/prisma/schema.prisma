@@ -63,6 +63,7 @@ model Workspace {
   users       User[]
   folders     Folder[]
   documents   Document[]
+  ingestionJobs IngestionJob[]
   assistants  Assistant[]
   chatSessions ChatSession[]
   auditLogs   AuditLog[]
@@ -130,6 +131,7 @@ model Document {
   title           String
   fileName        String
   fileType        String
+  fileSize        Int
   storageKey      String
   checksum        String?
   version         Int             @default(1)
@@ -141,9 +143,28 @@ model Document {
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   folder          Folder    @relation(fields: [folderId], references: [id])
   chunks          DocumentChunk[]
+  ingestionJobs   IngestionJob[]
 
   @@index([workspaceId])
   @@index([folderId])
+}
+
+model IngestionJob {
+  id          String          @id @default(cuid())
+  workspaceId String
+  documentId  String
+  status      IngestionStatus @default(pending)
+  error       String?
+  attempts    Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([documentId])
+  @@index([status])
 }
 
 model DocumentChunk {

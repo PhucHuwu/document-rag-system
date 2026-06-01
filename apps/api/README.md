@@ -46,3 +46,35 @@ Planned modules:
 - `chat`
 - `audit-logs`
 - `retrieval-traces`
+
+Implemented dev endpoints:
+
+```text
+POST /auth/login
+GET /auth/me
+GET /workspaces
+POST /workspaces
+PATCH /workspaces/:workspaceId
+GET /users
+POST /users
+PATCH /users/:userId
+GET /folders
+POST /folders
+PATCH /folders/:folderId
+DELETE /folders/:folderId
+POST /folders/:folderId/access
+DELETE /folders/:folderId/access/:userId
+GET /documents
+GET /documents/:documentId
+POST /documents/upload
+GET /documents/ingestion-jobs/:jobId
+GET /assistants
+POST /assistants
+PATCH /assistants/:assistantId
+DELETE /assistants/:assistantId
+POST /assistants/:assistantId/knowledge-sources
+DELETE /assistants/:assistantId/knowledge-sources/:folderId
+POST /assistants/:assistantId/assignments
+DELETE /assistants/:assistantId/assignments/:userId
+POST /chat/messages
+```
