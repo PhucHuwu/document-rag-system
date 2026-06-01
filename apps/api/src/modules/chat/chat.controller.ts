@@ -1,19 +1,22 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { CurrentUser } from "../auth/current-user.decorator";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import type { AuthUser } from "../auth/auth.types";
 import { ChatService } from "./chat.service";
 
 type ChatRequest = {
   question: string;
   assistantId?: string;
-  userId?: string;
   sessionId?: string;
 };
 
+@UseGuards(JwtAuthGuard)
 @Controller("chat")
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post("messages")
-  sendMessage(@Body() body: ChatRequest) {
-    return this.chatService.sendMessage(body);
+  sendMessage(@CurrentUser() user: AuthUser, @Body() body: ChatRequest) {
+    return this.chatService.sendMessage(user, body);
   }
 }

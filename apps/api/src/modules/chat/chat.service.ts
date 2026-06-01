@@ -1,11 +1,13 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { Prisma } from "@prisma/client";
+import type { AuthUser } from "../auth/auth.types";
 import { DevDataService } from "../dev-data/dev-data.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 type ChatRequest = {
   question: string;
   assistantId?: string;
-  userId?: string;
   sessionId?: string;
 };
 
@@ -13,23 +15,49 @@ type ChatRequest = {
 export class ChatService {
   constructor(
     private readonly config: ConfigService,
-    private readonly devData: DevDataService
+    private readonly devData: DevDataService,
+    private readonly prisma: PrismaService
   ) {}
 
-  async sendMessage(input: ChatRequest) {
+  async sendMessage(authUser: AuthUser, input: ChatRequest) {
+    if (!authUser.workspaceId) {
+      throw new ForbiddenException("Platform users cannot chat without workspace context in dev backend.");
+    }
+
+    if (!input.question?.trim()) {
+      throw new BadRequestException("Question is required");
+    }
+
     const aiBackendUrl = this.config.get<string>("AI_BACKEND_URL", "http://localhost:8000");
-    const userId = input.userId ?? "user_hr";
     const assistantId = input.assistantId ?? "asst_hr";
-    const user = this.devData.getUser(userId);
-    const assistant = this.devData.getAssistant(assistantId);
-    const effectiveScope = this.devData.getEffectiveFolderScope(user.id, assistant.id);
+    const user = await this.devData.getUser(authUser.id);
+    const assistant = await this.devData.getAssistant(assistantId);
+
+    this.devData.assertSameWorkspace(user, assistant);
+
+    const [userFolderScope, assistantFolderScope, effectiveScope] = await Promise.all([
+      this.devData.getUserFolderScope(user.id),
+      this.devData.getAssistantFolderScope(assistant.id),
+      this.devData.getEffectiveFolderScope(user.id, assistant.id)
+    ]);
 
     if (effectiveScope.length === 0) {
       throw new ForbiddenException("Bạn không có quyền truy cập tri thức phù hợp cho assistant này.");
     }
 
-    const session = this.devData.getOrCreateSession(user.id, assistant.id, input.sessionId);
-    this.devData.addMessage(session.id, "user", input.question);
+    const session = await this.getOrCreateSession(user.id, authUser.workspaceId, assistant.id, input.sessionId);
+
+    await this.prisma.chatMessage.create({
+      data: {
+        workspaceId: authUser.workspaceId,
+        sessionId: session.id,
+        userId: user.id,
+        role: "user",
+        content: input.question
+      }
+    });
+
+    const startedAt = Date.now();
 
     const response = await fetch(`${aiBackendUrl}/rag/query`, {
       method: "POST",
@@ -54,7 +82,36 @@ export class ChatService {
     }
 
     const aiResult = await response.json();
-    this.devData.addMessage(session.id, "assistant", aiResult.answer ?? "");
+    const latencyMs = Date.now() - startedAt;
+    const sources = (aiResult.sources ?? []) as Prisma.InputJsonValue;
+
+    await this.prisma.chatMessage.create({
+      data: {
+        workspaceId: authUser.workspaceId,
+        sessionId: session.id,
+        role: "assistant",
+        content: aiResult.answer ?? "",
+        sources
+      }
+    });
+
+    await this.prisma.retrievalTrace.create({
+      data: {
+        workspaceId: authUser.workspaceId,
+        sessionId: session.id,
+        userId: user.id,
+        assistantId: assistant.id,
+        question: input.question,
+        userFolderScope,
+        assistantFolderScope,
+        effectiveFolderScope: effectiveScope,
+        qdrantFilter: aiResult.debug?.qdrant_filter ?? undefined,
+        retrievedChunkIds: aiResult.debug?.retrieved_chunk_ids ?? [],
+        llmProvider: aiResult.debug?.llm_provider ?? "openrouter",
+        llmModel: aiResult.debug?.llm_model ?? "unknown",
+        latencyMs
+      }
+    });
 
     return {
       sessionId: session.id,
@@ -64,5 +121,24 @@ export class ChatService {
       effectiveFolderScope: effectiveScope,
       ...aiResult
     };
+  }
+
+  private async getOrCreateSession(userId: string, workspaceId: string, assistantId: string, sessionId?: string) {
+    if (sessionId) {
+      const existing = await this.prisma.chatSession.findFirst({
+        where: { id: sessionId, userId, workspaceId, assistantId }
+      });
+
+      if (existing) return existing;
+    }
+
+    return this.prisma.chatSession.create({
+      data: {
+        workspaceId,
+        userId,
+        assistantId,
+        title: "New chat"
+      }
+    });
   }
 }
