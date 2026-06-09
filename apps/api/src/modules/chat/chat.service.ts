@@ -61,7 +61,10 @@ export class ChatService {
 
     const response = await fetch(`${aiBackendUrl}/rag/query`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-internal-key": this.config.get<string>("INTERNAL_API_KEY", "change-me-internal-key")
+      },
       body: JSON.stringify({
         workspace_id: user.workspaceId,
         user_id: user.id,

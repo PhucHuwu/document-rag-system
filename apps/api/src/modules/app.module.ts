@@ -10,6 +10,7 @@ import { UsersModule } from "./users/users.module";
 import { FoldersModule } from "./folders/folders.module";
 import { AssistantsModule } from "./assistants/assistants.module";
 import { DocumentsModule } from "./documents/documents.module";
+import { InternalModule } from "./internal/internal.module";
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { DocumentsModule } from "./documents/documents.module";
     FoldersModule,
     DocumentsModule,
     AssistantsModule,
-    ChatModule
+    ChatModule,
+    InternalModule
   ]
 })
 export class AppModule {}

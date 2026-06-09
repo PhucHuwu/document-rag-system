@@ -1,3 +1,25 @@
+# Shared env for the AI API and the AI worker (same image, different command).
+x-ai-env: &ai-env
+  QDRANT_URL: http://qdrant:6333
+  QDRANT_COLLECTION: tina_chunks
+  REDIS_URL: redis://redis:6379
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: 9000
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: minioadmin
+  MINIO_BUCKET: tina-documents
+  CORE_BACKEND_URL: http://api:3001
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-key}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+  EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+  COHERE_API_KEY: ${COHERE_API_KEY:-}
+  RERANKER_MODEL: ${RERANKER_MODEL:-rerank-multilingual-v3.0}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+  OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-Tina Chatbot}
+  OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-http://localhost:3000}
+  LLM_MODEL: ${LLM_MODEL:-openai/gpt-4.1-mini}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -65,21 +87,37 @@ services:
     build:
       context: .
       dockerfile: apps/ai/Dockerfile
+    image: tina-ai:local
     container_name: tina-ai
     environment:
+      <<: *ai-env
       AI_PORT: 8000
-      QDRANT_URL: http://qdrant:6333
-      QDRANT_COLLECTION: tina_chunks
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-Tina Chatbot}
-      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-http://localhost:3000}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
-      LLM_MODEL: ${LLM_MODEL:-openai/gpt-4.1-mini}
     ports:
       - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       qdrant:
+        condition: service_started
+
+  ai-worker:
+    image: tina-ai:local
+    container_name: tina-ai-worker
+    command: ["python", "-m", "app.worker"]
+    environment:
+      <<: *ai-env
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    depends_on:
+      ai:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      api:
         condition: service_started
 
   api:
@@ -93,6 +131,7 @@ services:
       REDIS_URL: redis://redis:6379
       AI_BACKEND_URL: http://ai:8000
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-key}
       WEB_ORIGIN: http://localhost:3000
     ports:
       - "3001:3001"
@@ -122,3 +161,4 @@ volumes:
   redis_data:
   minio_data:
   qdrant_data:
+  hf_cache:
