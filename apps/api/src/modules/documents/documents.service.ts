@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { createHash } from "node:crypto";
 import type { AuthUser } from "../auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { QueueService } from "../queue/queue.service";
 import { StorageService } from "../storage/storage.service";
 
 type UploadedFile = Express.Multer.File;
@@ -10,7 +11,8 @@ type UploadedFile = Express.Multer.File;
 export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly queue: QueueService
   ) {}
 
   list(user: AuthUser, folderId?: string) {
@@ -52,7 +54,12 @@ export class DocumentsService {
 
     await this.storage.uploadObject({ key: storageKey, body: file.buffer, contentType: file.mimetype });
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const supersededDocs = await tx.document.findMany({
+        where: { workspaceId, folderId: folder.id, fileName: file.originalname, isActive: true },
+        select: { id: true }
+      });
+
       if (existingVersion) {
         await tx.document.updateMany({
           where: { workspaceId, folderId: folder.id, fileName: file.originalname },
@@ -96,8 +103,27 @@ export class DocumentsService {
         }
       });
 
-      return { document, ingestionJob };
+      return { document, ingestionJob, supersedesDocumentIds: supersededDocs.map((doc) => doc.id) };
     });
+
+    await this.queue
+      .enqueueIngestion({
+        jobId: result.ingestionJob.id,
+        documentId: result.document.id,
+        workspaceId,
+        folderId: folder.id,
+        storageKey,
+        fileName: file.originalname,
+        fileType: result.document.fileType,
+        title: result.document.title,
+        version: result.document.version,
+        supersedesDocumentIds: result.supersedesDocumentIds
+      })
+      .catch((error) => {
+        console.error(`Failed to enqueue ingestion job ${result.ingestionJob.id}`, error);
+      });
+
+    return { document: result.document, ingestionJob: result.ingestionJob };
   }
 
   async getIngestionJob(user: AuthUser, jobId: string) {
